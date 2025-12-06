@@ -2,6 +2,7 @@ import requests
 import json
 from datetime import date
 import logging
+import mysql.connector
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -12,8 +13,8 @@ def fetch_cabbage_prices():
     logging.info("開始呼叫農產品交易行情API ...")
 
     params = {
-        "Start_time": "114.11.15",
-        "End_time": "114.11.18",
+        "Start_time": "110.01.01",
+        "End_time": "114.12.06",
         "CropCode": "LA1"
     }
 
@@ -59,8 +60,8 @@ def transfer_to_AD(data):
                 
         except Exception as e:
             logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")     
- 
 
-ROC_year_data = fetch_cabbage_prices()
-AD_data = transfer_to_AD(ROC_year_data)
+
+
+
 
