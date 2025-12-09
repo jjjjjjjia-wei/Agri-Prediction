@@ -1,6 +1,6 @@
 import requests
 import json
-from datetime import date
+from datetime import date, timedelta
 import logging
 import mysql.connector
 
@@ -12,9 +12,11 @@ def fetch_cabbage_prices():
 
     logging.info("開始呼叫農產品交易行情API ...")
 
+    yesterday = transfer_to_Taiwanese_year()
+
     params = {
         "Start_time": "110.01.01",
-        "End_time": "114.12.06",
+        "End_time": f'{yesterday}',
         "CropCode": "LA1"
     }
 
@@ -42,7 +44,6 @@ def fetch_cabbage_prices():
     except Exception as e:
         logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")
 
-
 def transfer_to_AD(data):
     if len(data) > 0:
         try:
@@ -59,7 +60,15 @@ def transfer_to_AD(data):
             return data 
                 
         except Exception as e:
-            logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")     
+            logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")    
+
+def transfer_to_Taiwanese_year():
+    yesterday = date.today() - timedelta(days=1)
+    year = int(yesterday.year) - 1911
+
+    yesterday = f'{year}.{yesterday.month:02d}.{yesterday.day:02d}'
+
+    return yesterday
 
 
 

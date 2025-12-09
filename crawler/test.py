@@ -1,10 +1,9 @@
-import mysql.connector
+from datetime import timedelta, date
 
-mydb = mysql.connector.connect(
-  host="127.0.0.1",
-  port='3306',
-  user="root",
-  password="willyylliw52"
-)
 
-print(mydb)
+yesterday = date.today() - timedelta(days=1)
+year = int(yesterday.year) - 1911
+
+yesterday = f'{year}.{yesterday.month:02d}.{yesterday.day:02d}'
+
+print(yesterday)
