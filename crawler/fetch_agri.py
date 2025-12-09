@@ -15,7 +15,7 @@ def fetch_cabbage_prices():
     yesterday = transfer_to_Taiwanese_year()
 
     params = {
-        "Start_time": "110.01.01",
+        "Start_time": "114.12.07",
         "End_time": f'{yesterday}',
         "CropCode": "LA1"
     }
@@ -33,6 +33,9 @@ def fetch_cabbage_prices():
             if len(data) > 0:
                 print("--- 第一筆資料 ---")
                 print(json.dumps(data[0], indent=4, ensure_ascii=False)) #nsure_ascii=False 為了看到繁體中文
+                
+                price_str_to_float(data)
+                
             else:
                 logging.error("資料數為 0 ")
 
@@ -60,7 +63,9 @@ def transfer_to_AD(data):
             return data 
                 
         except Exception as e:
-            logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")    
+            logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")  
+    else:
+        logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")
 
 def transfer_to_Taiwanese_year():
     yesterday = date.today() - timedelta(days=1)
@@ -69,6 +74,18 @@ def transfer_to_Taiwanese_year():
     yesterday = f'{year}.{yesterday.month:02d}.{yesterday.day:02d}'
 
     return yesterday
+
+def price_str_to_float(data):
+    for i in range(0, len(data)):
+        data[i]['Upper_Price'] = float(data[i]['Upper_Price'])
+        data[i]['Middle_Price'] = float(data[i]['Middle_Price'])
+        data[i]['Lower_Price'] = float(data[i]['Lower_Price'])
+        data[i]['Avg_Price'] = float(data[i]['Avg_Price'])
+        data[i]['Trans_Quantity'] = float(data[i]['Trans_Quantity'])
+
+if __name__ == '__main__':
+    data = transfer_to_AD(fetch_cabbage_prices())
+    print(data)
 
 
 

@@ -14,7 +14,7 @@ def init_db():
         cursor = conn.cursor()
 
         create_table_sql = """
-        CREATE TABLE IF NOT EXISTS LA1 (
+        CREATE TABLE IF NOT EXISTS la1 (
             `ID` INT AUTO_INCREMENT PRIMARY KEY,
             `TransDate` DATE NOT NULL,
             `TcType` VARCHAR(10),
@@ -44,6 +44,18 @@ def init_db():
             cursor.close()
             conn.close()
 
+
+def insert_to_db(list_data):
+    conn = mysql.connector.connect(
+        host="127.0.0.1",
+        port="3306",
+        user="root",
+        password="willyylliw52"
+    )
+    cursor = conn.cursor()
+
+    sql = """INSERT INTO la1 (TransDate, TcType, CropCode, CropName, MarketCode, MArketName, Upper_Price, Middle_Price, Lower_Price, Avg_Price, Trans_Quantity) 
+    VALUES ()"""
 
 
     
