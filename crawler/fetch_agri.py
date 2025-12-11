@@ -2,7 +2,7 @@ import requests
 import json
 from datetime import date, timedelta
 import logging
-import mysql.connector
+from database import init_db, insert_to_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -13,36 +13,57 @@ def fetch_cabbage_prices():
     logging.info("開始呼叫農產品交易行情API ...")
 
     yesterday = transfer_to_Taiwanese_year()
+    page = 1
+    continue_to_fetch = True
+    is_stop_page = False
+    data = []
 
     params = {
-        "Start_time": "114.12.07",
+        "Start_time": "110.01.01",
         "End_time": f'{yesterday}',
-        "CropCode": "LA1"
+        "CropCode": "LA1",
+        "api_key": "3RAFHIV6Q9S60U0J08AKWTN227K1FE"
     }
 
     try:
-        response = requests.get(API_URL, params=params)
+        while continue_to_fetch:
+            params['Page'] = page
+            response = requests.get(API_URL, params=params)
 
-        if response.status_code == 200:
-            result = response.json()
-
-            if "Data" in result:
-                data = result["Data"]
-                logging.info(f"成功取得資料，共{len(data)}筆資料")
-
-            if len(data) > 0:
-                print("--- 第一筆資料 ---")
-                print(json.dumps(data[0], indent=4, ensure_ascii=False)) #nsure_ascii=False 為了看到繁體中文
+            if response.status_code == 200:
+                result = response.json()
                 
-                price_str_to_float(data)
-                
+                if "Data" and "Next" in result:
+                    next_page = result["Next"]
+                    data.extend(result["Data"])
+                    logging.info(f"爬取第{page}頁成功，目前共{len(data)}筆資料")
+                    print(data[page*1000-1000])
+
+                    if next_page == True:
+                        page += 1
+                    else:
+                        if result["Data"] != [] and not is_stop_page:
+                            is_stop_page = True
+                            continue
+                        else:
+                            continue_to_fetch = False
+
+                else:
+                    logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")
             else:
-                logging.error("資料數為 0 ")
+                logging.error(f"無法串接API，錯誤碼:{response.status_code}")
+        logging.info(f"爬完資料了，共{len(data)}筆")
 
-            return data
-         
+        if len(data) > 0:
+            print("--- 第一筆資料 ---")
+            print(json.dumps(data[0], indent=4, ensure_ascii=False)) #nsure_ascii=False 為了看到繁體中文
+            
+            price_str_to_float(data)
+            
         else:
-            logging.error(f"請求失敗，錯誤代碼：{response.status_code}")
+            logging.error("資料數為 0 ")
+
+        return data
             
     except Exception as e:
         logging.error(f"發生預期外錯誤：{type(e).__name__}: {e}")
@@ -84,8 +105,12 @@ def price_str_to_float(data):
         data[i]['Trans_Quantity'] = float(data[i]['Trans_Quantity'])
 
 if __name__ == '__main__':
-    data = transfer_to_AD(fetch_cabbage_prices())
-    print(data)
+    ROC_year_data = fetch_cabbage_prices()
+    AD_data = transfer_to_AD(ROC_year_data)
+    init_db()
+    insert_to_db(AD_data)
+
+    
 
 
 
