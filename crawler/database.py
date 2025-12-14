@@ -58,7 +58,7 @@ def insert_to_db(list_data):
         cursor = conn.cursor()
         logging.info("資料庫連接完成!")
 
-        sql = """INSERT INTO la1 (TransDate, TcType, CropCode, CropName, MarketCode, MarketName, Upper_Price, Middle_Price, Lower_Price, Avg_Price, Trans_Quantity) 
+        sql = """INSERT IGNORE INTO la1 (TransDate, TcType, CropCode, CropName, MarketCode, MarketName, Upper_Price, Middle_Price, Lower_Price, Avg_Price, Trans_Quantity) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
         # 將 Dict 列表轉換為 Tuple 列表
