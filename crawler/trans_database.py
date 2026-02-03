@@ -11,7 +11,7 @@ DB_CONFIG = {
     "database": "agri_transcation"
 }
 
-def init_db():
+def init_veg_db():
     # 初始化變數，避免 finally 出錯
     conn = False
     cursor = False
@@ -35,7 +35,8 @@ def init_db():
             `Trans_Quantity` FLOAT NOT NULL,
 
             INDEX idx_transdate (TransDate),
-            INDEX idx_crop (CropCode)
+            INDEX idx_crop (CropCode),
+            UNIQUE INDEX unique_data(TransDate, CropCode, MarketCode)
         );        
         """
         cursor.execute(create_table_sql)
@@ -51,7 +52,8 @@ def init_db():
             conn.close()
 
 
-def insert_to_db(list_data):
+def insert_to_veg_db(list_data):
+    conn = False
     try:
         logging.info("開始連接資料庫...")
         conn = mysql.connector.connect(**DB_CONFIG)
@@ -92,6 +94,8 @@ def insert_to_db(list_data):
         if conn and conn.is_connected():
             if cursor: cursor.close()
             conn.close()
+
+
 
 
 

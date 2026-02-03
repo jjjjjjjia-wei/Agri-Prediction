@@ -2,7 +2,7 @@ import requests
 import json
 from datetime import date, timedelta
 import logging
-from database import init_db, insert_to_db
+from trans_database import init_veg_db, insert_to_veg_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,7 +15,7 @@ def fetch_cabbage_prices(initial):
     today = transfer_to_Taiwanese_year('today')
     yesterday = transfer_to_Taiwanese_year('yesterday')
     before_yesterday = transfer_to_Taiwanese_year('before_yesterday')
-    init_date = '110.01.01'
+    init_date = '109.01.01'
     page = 1
     continue_to_fetch = True
     is_stop_page = False
@@ -126,11 +126,11 @@ def price_str_to_float(data):
         data[i]['Trans_Quantity'] = float(data[i]['Trans_Quantity'])
 
 if __name__ == '__main__':
-    is_initial = "yes"
+    is_initial = "no"
     ROC_year_data = fetch_cabbage_prices(initial=is_initial)
     AD_data = transfer_to_AD(ROC_year_data)
-    init_db()
-    insert_to_db(AD_data)
+    init_veg_db()
+    insert_to_veg_db(AD_data)
 
     
 
