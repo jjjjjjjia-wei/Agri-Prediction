@@ -1,5 +1,6 @@
 import mysql.connector
 import logging
+from sqlalchemy import create_engine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -94,6 +95,21 @@ def insert_to_veg_db(list_data):
         if conn and conn.is_connected():
             if cursor: cursor.close()
             conn.close()
+
+def get_trans_data():
+
+    DB_CONFIG = {
+        "host": "127.0.0.1",
+        "port": "3306",
+        "user": "root",
+        "password": "willyylliw52",
+        "database": "agri_transcation"
+    }
+
+    db_url = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+    engine = create_engine(db_url)
+
+    return engine
 
 
 

@@ -1,9 +1,10 @@
 import pandas as pd
-from glob import glob
 import os
 
 def resrt_obstime():
     all_frames = [] # 儲存修改完的資料
+    
+
     citys = os.listdir('../weather_csvdata')
     for city in citys:
         countrys = os.listdir(f'../weather_csvdata/{city}')
@@ -37,6 +38,8 @@ def resrt_obstime():
                     data['ObsTime'] = new_obstime
                     data['Station_Code'] = station_code
                     all_frames.append(data)
+
+
     return all_frames
 
 def merge():
@@ -64,18 +67,3 @@ def data_clean(weather_df):
     weather_df.insert(1, 'Station_Code', move_station_code) # 放到第二欄
     
     return weather_df
-
-def plot(weather_df):
-    import matplotlib
-    import matplotlib.pyplot as plt
-    # station_code = ['C0G730', 'C0G870', 'C0G750', '72M700', 'C0D360', 'C0I480', 'U2HA40', 'C2F860', 'C0O900',
-    #                 'C0S600', 'C0U720', 'C0K520', 'C0K440', 'C0K480', 'V2K620', 'C0K550', 'C0K280', 'A2K360', 
-    #                 'C0K390', 'C0K500']
-    # for station in station_code:
-    
-
-# if __name__ == '__main__':
-#     weather_df = data_clean(merge())
-#     weather_df.head(10)
-#     weather_df.shape
-#     weather_df.info()
