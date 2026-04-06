@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 import logging
-import weather_csv
+from weather_csv import data_clean, merge
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -18,13 +18,13 @@ def get_weather_data():
     return db_engine
 
 
-def save_to_weather_db(weather_df, table):
+def save_to_weather_db(weather_df, table, exist_way):
     try:
         db_engine = get_weather_data()
         weather_df.to_sql(
             name = table,
             con = db_engine,
-            if_exists = 'replace',
+            if_exists = exist_way,
             index = False
         )
         logging.info('天氣資料寫入成功')
@@ -33,5 +33,5 @@ def save_to_weather_db(weather_df, table):
         logging.error(f'天氣資料寫入失敗: {e}')
 
 if __name__ == '__main__':
-    weather_df = weather_csv.data_clean(weather_csv.merge())
-    save_to_weather_db(weather_df, '2020-2025_original_weather')
+    weather_df = data_clean(merge())
+    save_to_weather_db(weather_df, '2020-2025_original_weather', 'replace')

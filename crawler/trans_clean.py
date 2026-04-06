@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from trans_database import get_trans_data
+from trans_database import get_trans_data, save_to_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -8,11 +8,14 @@ all_market_code = ['104','109','220','241','260','338','400','420','512',
                    '514','540','648','800','830','900','930','950']
 
 def clean():
-    sql = f'SELECT * FROM agri_transcation.clean_la1'
+    sql = f'SELECT * FROM agri_transcation.la1_clean'
     engine = get_trans_data()
     df = pd.read_sql(sql, engine)
     
+    clean_column = ['Upper_Price', 'Middle_Price', 'Lower_Price', 'Avg_Price', 'Trans_Quantity']
+
     # --- 1. 處理缺失值 ---
+    df[clean_column] = df.groupby('MarketCode')[clean_column].transform(lambda x: x.interpolate())
 
     # --- 2. 處理重複值 ---
     repeat = df.duplicated().sum()
@@ -36,19 +39,7 @@ def clean():
     
     return df
 
-def save_to_db(df, table):
-    try:
-        db_engine = get_trans_data()
-        df.to_sql(
-            name = table,
-            con = db_engine,
-            if_exists = 'replace',
-            index = False
-        )
-        logging.info('寫入成功')
 
-    except Exception as e:
-        logging.error(f'寫入失敗: {e}')
 
 if __name__ == "__main__":
     df = clean()

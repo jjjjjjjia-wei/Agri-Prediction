@@ -53,7 +53,7 @@ def init_veg_db():
             conn.close()
 
 
-def insert_to_veg_db(list_data):
+def insert_to_veg_db(list_data, table):
     conn = False
     try:
         logging.info("開始連接資料庫...")
@@ -61,7 +61,7 @@ def insert_to_veg_db(list_data):
         cursor = conn.cursor()
         logging.info("資料庫連接完成!")
 
-        sql = """INSERT IGNORE INTO la1 (TransDate, TcType, CropCode, CropName, MarketCode, MarketName, Upper_Price, Middle_Price, Lower_Price, Avg_Price, Trans_Quantity) 
+        sql = f"""INSERT IGNORE INTO {table} (TransDate, TcType, CropCode, CropName, MarketCode, MarketName, Upper_Price, Middle_Price, Lower_Price, Avg_Price, Trans_Quantity) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
         # 將 Dict 列表轉換為 Tuple 列表
@@ -110,6 +110,20 @@ def get_trans_data():
     engine = create_engine(db_url)
 
     return engine
+
+def save_to_db(df, table):
+    try:
+        db_engine = get_trans_data()
+        df.to_sql(
+            name = table,
+            con = db_engine,
+            if_exists = 'replace',
+            index = False
+        )
+        logging.info('寫入成功')
+
+    except Exception as e:
+        logging.error(f'寫入失敗: {e}')
 
 
 

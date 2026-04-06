@@ -4,7 +4,6 @@ import os
 def resrt_obstime():
     all_frames = [] # 儲存修改完的資料
     
-
     citys = os.listdir('../weather_csvdata')
     for city in citys:
         countrys = os.listdir(f'../weather_csvdata/{city}')
@@ -39,7 +38,6 @@ def resrt_obstime():
                     data['Station_Code'] = station_code
                     all_frames.append(data)
 
-
     return all_frames
 
 def merge():
@@ -67,3 +65,12 @@ def data_clean(weather_df):
     weather_df.insert(1, 'Station_Code', move_station_code) # 放到第二欄
     
     return weather_df
+
+if __name__ == "__main__":
+    from weather_database import save_to_weather_db
+
+    df = merge()
+    initial_clean_df = data_clean(df)
+    save_to_weather_db(initial_clean_df, '2020-2025_original_weather', 'append')
+    
+    

@@ -9,7 +9,7 @@ def transform_obstime():
     # 先把天氣資料按照"一天多個測站"分類
     # 從資料庫提取天氣資料
     db_engine = get_weather_data()
-    sql = 'SELECT * FROM `2020-2025_clean_weather`'
+    sql = 'SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 95 DAY'
     df = pd.read_sql(sql, db_engine)
 
     # 轉換表格
@@ -18,14 +18,15 @@ def transform_obstime():
     df_wide = df.pivot_table(index='ObsTime', columns='Station_Code', values=clean_column)
     df_wide.columns = [f"{col[1]}_{col[0]}" for col in df_wide.columns]
     df_wide = df_wide.reset_index()
+    df_wide_newest = df_wide.tail(1)
 
     # 存回資料庫
-    save_to_weather_db(df_wide, "2020-2025_all_stations_daily")
+    save_to_weather_db(df_wide_newest, "2020-2025_all_stations_daily", 'append')
     
     return df_wide
 
 def trans_data():
-    sql = 'SELECT * FROM la1_clean WHERE TransDate<="2025-12-31"'
+    sql = 'SELECT * FROM la1_clean WHERE DATE(TransDate) >= CURDATE() - INTERVAL 95 DAY'
     engine =  get_trans_data()
     trans_df = pd.read_sql(sql, engine)
 
@@ -39,8 +40,8 @@ def weather_FE():
     new_features = {}
     
     # 測站代號
-    all_station_code = ['C2F860', 'C0G870', 'C0G730', 'C0G750', 'C0K280', 'C0K390', 'C0K500', 
-                    'V2K620', 'C0K520', 'C0K440', 'C0K550', 'A2K360', 'C0K480']
+    all_station_code = ['C2F860', 'C2G870', 'C0G730', 'C0G940', 'C2K280', 'C0K390', 'C0K500', 
+                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480']
     
     # --- 1. 滾動平均 ---
     for station in all_station_code:
@@ -110,8 +111,20 @@ def trans_FE():
     # 昨天同一個市場的交易量
     trans_df['yesterday_transQ'] = trans_df.groupby('MarketCode')['Trans_Quantity'].shift(1)
 
-    # 過去 7 天平均交易量
-    trans_df['transQ_avg_7day'] = trans_df.groupby('MarketCode')['Trans_Quantity'].transform(lambda x: x.rolling(window=7).mean())
+    # 從昨天開始往前推 7 天的平均交易量
+    trans_df['transQ_avg_7day'] = trans_df.groupby('MarketCode')['Trans_Quantity'].transform(lambda x: x.shift(1).rolling(window=7).mean())
+
+    # 昨天的最高價
+    trans_df['yesterday_upperP'] = trans_df.groupby('MarketCode')['Upper_Price'].shift(1)
+
+    # 昨天的中價
+    trans_df['yesterday_middleP'] = trans_df.groupby('MarketCode')['Middle_Price'].shift(1)
+    
+    # 昨天的最低價
+    trans_df['yesterday_lowerP'] = trans_df.groupby('MarketCode')['Lower_Price'].shift(1)
+
+    # 刪除 '當日'最高價、中價、最低價、交易量，以防止當日洩漏
+    trans_df = trans_df.drop(columns=['Upper_Price', 'Middle_Price', 'Lower_Price', 'Trans_Quantity'])
 
     return trans_df
 
@@ -119,8 +132,11 @@ def merge_weather_trans(trans_df, weather_df):
     # 合併成一個大表
     merged_df = pd.merge(trans_df, weather_df, left_on='TransDate', right_on='ObsTime', how='left')
     
-    # 清除因滾動平均留下來的空值
+    # 清除因滾動平均留下來的空值以及流水號ID
+    merged_df = merged_df.drop(columns=['ID'])
     merged_df = merged_df.dropna()
+    # 清除 ObsTime 保留 TransDate 就好
+    merged_df = merged_df.drop(columns=['ObsTime'])
 
     return merged_df
 
@@ -140,7 +156,7 @@ def save_to_merge_db(merged_df, table):
         merged_df.to_sql(
             name = table,
             con = db_engine,
-            if_exists = 'replace',
+            if_exists = 'append',
             index = False
         )
         logging.info('特徵工程資料寫入成功')
@@ -154,7 +170,9 @@ def save_to_merge_db(merged_df, table):
 if __name__ == "__main__":
     trans_df = trans_FE()
     weather_df = weather_FE()
-    data_2020_2025 = merge_weather_trans(trans_df, weather_df)
-    save_to_merge_db(merged_df=data_2020_2025, table='merged_fe')
+    merge_data = merge_weather_trans(trans_df, weather_df)
+    latest_date = merge_data['TransDate'].max()
+    newest_data = merge_data[merge_data['TransDate']==latest_date]
+    save_to_merge_db(newest_data, table='merged_fe')
 
 

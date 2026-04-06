@@ -2,7 +2,8 @@ import requests
 import json
 from datetime import date, timedelta
 import logging
-from trans_database import init_veg_db, insert_to_veg_db
+from trans_database import init_veg_db, insert_to_veg_db, save_to_db
+from trans_clean import clean
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -130,7 +131,10 @@ if __name__ == '__main__':
     ROC_year_data = fetch_cabbage_prices(initial=is_initial)
     AD_data = transfer_to_AD(ROC_year_data)
     init_veg_db()
-    insert_to_veg_db(AD_data)
+    insert_to_veg_db(AD_data, 'la1') # 原始資料
+    insert_to_veg_db(AD_data, 'la1_clean') # 準備要資料清洗的資料
+    clean_trans_df = clean()
+    save_to_db(clean_trans_df, 'la1_clean')
 
     
 
