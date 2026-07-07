@@ -24,7 +24,6 @@ def clean():
                     'RH', 'RHMin', 'WS', 'WD', 'WSGust', 'WDGust', 'Precp']
 
     sql = f'''SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 3 DAY'''
-
     df = pd.read_sql(sql, engine)
     if df.empty:
         return df

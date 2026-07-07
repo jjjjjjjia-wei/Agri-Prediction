@@ -3,14 +3,20 @@ from trans_database import get_trans_data
 import pandas as pd
 from sqlalchemy import create_engine
 import logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def transform_obstime():
     # 先把天氣資料按照"一天多個測站"分類
     # 從資料庫提取天氣資料
     db_engine = get_weather_data()
-    sql = 'SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 95 DAY'
+    sql = 'SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 150 DAY'
     df = pd.read_sql(sql, db_engine)
+    df_len = len(df)
+    print(f"天氣資料表的資料長度:{df_len}")
+    if df_len == 0:
+        logging.error(f'天氣資料表沒有提取出資料')
+        return 
 
     # 轉換表格
     clean_column = ['StnPres', 'StnPresMax', 'StnPresMin','Temperature', 'T Max', 'T Min', 
@@ -26,9 +32,13 @@ def transform_obstime():
     return df_wide
 
 def trans_data():
-    sql = 'SELECT * FROM la1_clean WHERE DATE(TransDate) >= CURDATE() - INTERVAL 95 DAY'
+    sql = 'SELECT * FROM la1_clean WHERE DATE(TransDate) >= CURDATE() - INTERVAL 150 DAY'
     engine =  get_trans_data()
     trans_df = pd.read_sql(sql, engine)
+    df_len = len(trans_df)
+    print(f"交易資料表的資料長度:{df_len}")
+    if df_len == 0:
+        logging.error(f'天氣資料表沒有提取出資料')
 
     return trans_df
 
@@ -129,15 +139,17 @@ def trans_FE():
     return trans_df
 
 def merge_weather_trans(trans_df, weather_df):
+    trans_df = trans_df.sort_values('TransDate')
+    weather_df = weather_df.sort_values('ObsTime')
+    
     # 合併成一個大表
     merged_df = pd.merge(trans_df, weather_df, left_on='TransDate', right_on='ObsTime', how='left')
     
-    # 清除因滾動平均留下來的空值以及流水號ID
-    merged_df = merged_df.drop(columns=['ID'])
+    # 清除流水號ID與多餘的ObsTime
+    merged_df = merged_df.drop(columns=['ID', 'ObsTime'], errors='ignore')
+    merged_df = merged_df.ffill()
     merged_df = merged_df.dropna()
-    # 清除 ObsTime 保留 TransDate 就好
-    merged_df = merged_df.drop(columns=['ObsTime'])
-
+    
     return merged_df
 
 def save_to_merge_db(merged_df, table):
@@ -170,9 +182,8 @@ def save_to_merge_db(merged_df, table):
 if __name__ == "__main__":
     trans_df = trans_FE()
     weather_df = weather_FE()
-    merge_data = merge_weather_trans(trans_df, weather_df)
-    latest_date = merge_data['TransDate'].max()
-    newest_data = merge_data[merge_data['TransDate']==latest_date]
+    merge_df = merge_weather_trans(trans_df, weather_df)
+    latest_date = merge_df['TransDate'].max()
+    print(f"最新日期為: {latest_date}")
+    newest_data = merge_df[merge_df['TransDate']==latest_date]
     save_to_merge_db(newest_data, table='merged_fe')
-
-
