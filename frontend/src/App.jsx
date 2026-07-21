@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Constants
+// 全域常數
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const DAYS_BACK_FOR_ALERT = 14;
 const DAYS_BACK_FOR_TREND = 14;
@@ -16,7 +16,7 @@ function App() {
   const [selectedMarkets, setSelectedMarkets] = useState(['104']);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
-  const [queryData, setQueryData] = useState(null);
+  const [queryData, setQueryData] = useState(null); // 結構：{ is_rest_day: bool, list: [...] }
   const [predictData, setPredictData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -59,7 +59,10 @@ function App() {
     setError(null);
 
     const mCodes = selectedMarkets.join(',');
-    const endDate = selectedDate;
+    // 如果在 AI預測 或 警示系統，自動採用今天當作基準日期
+    const targetDate = (activeTab === 'predict' || activeTab === 'alert') 
+      ? new Date().toISOString().split('T')[0] 
+      : selectedDate;
 
     try {
       if (activeTab === 'predict') {
@@ -71,15 +74,18 @@ function App() {
         }
       } else {
         const daysBack = (activeTab === 'alert' || dateMode === 'range') ? DAYS_BACK_FOR_ALERT : 0;
-        const startDate = new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() - daysBack))
+        const startDate = new Date(new Date(targetDate).setDate(new Date(targetDate).getDate() - daysBack))
                           .toISOString().split('T')[0];
         
-        const res = await fetch(`${API_BASE_URL}/history_price?market_code=${mCodes}&start_date=${startDate}&end_date=${endDate}`);
+        const res = await fetch(`${API_BASE_URL}/history_price?market_code=${mCodes}&start_date=${startDate}&end_date=${targetDate}`);
         if (res.ok) {
           const result = await res.json();
-          if (result.歷史數據 && result.歷史數據.length > 0) {
-            setQueryData(result.歷史數據);
-          } else {
+          setQueryData({
+            is_rest_day: result.is_rest_day,
+            list: result.歷史數據 || []
+          });
+          
+          if (!result.is_rest_day && (!result.歷史數據 || result.歷史數據.length === 0)) {
             setError('所選日期與市場查無資料！');
           }
         } else {
@@ -94,11 +100,11 @@ function App() {
   };
 
   const getTrendData = () => {
-    if (!queryData) return [];
-    const dates = [...new Set(queryData.map(d => d.TransDate))];
+    if (!queryData || !queryData.list) return [];
+    const dates = [...new Set(queryData.list.map(d => d.TransDate))];
     return dates.map(date => {
       const row = { TransDate: date };
-      queryData.filter(d => d.TransDate === date).forEach(d => {
+      queryData.list.filter(d => d.TransDate === date).forEach(d => {
         if (d.MarketCode) {
           row[d.MarketCode] = d.Avg_Price;
         }
@@ -108,8 +114,8 @@ function App() {
   };
 
   const checkWeeklyHigh = useMemo(() => {
-    if (!queryData || activeTab !== 'alert' || queryData.length === 0) return null;
-    const sorted = [...queryData].sort((a, b) => new Date(b.TransDate) - new Date(a.TransDate));
+    if (!queryData || !queryData.list || activeTab !== 'alert' || queryData.list.length === 0) return null;
+    const sorted = [...queryData.list].sort((a, b) => new Date(b.TransDate) - new Date(a.TransDate));
     const latest = sorted[0];
     const past7Days = sorted.slice(1, WEEK_HIGH_DAYS + 1);
     const maxPast = past7Days.length > 0 ? Math.max(...past7Days.map(d => d.Avg_Price)) : 0;
@@ -135,21 +141,33 @@ function App() {
         </div>
       )}
 
+      {/* 頂部頁籤選單 */}
       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '25px' }}>
-        <button onClick={() => setActiveTab('query')} style={btnStyle(activeTab === 'query')}>價格查詢</button>
+        <button onClick={() => { setActiveTab('query'); setError(null); }} style={btnStyle(activeTab === 'query')}>價格查詢</button>
         <button onClick={() => { setActiveTab('predict'); setSelectedMarkets([selectedMarkets[0] || '104']); setError(null); }} style={btnStyle(activeTab === 'predict')}>AI 預測</button>
         <button onClick={() => { setActiveTab('alert'); setSelectedMarkets([selectedMarkets[0] || '104']); setError(null); }} style={btnStyle(activeTab === 'alert', true)}>警示系統</button>
       </div>
 
+      {/* 條件篩選面板 */}
       <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px' }}>
         <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          
+          {/* 只有在「價格查詢」頁籤才顯示日期相關控制元件 */}
           {activeTab === 'query' && (
-            <select value={dateMode} onChange={(e) => setDateMode(e.target.value)} style={inputStyle}>
-              <option value="single">單日快照</option>
-              <option value="range">14天趨勢</option>
-            </select>
+            <>
+              <select value={dateMode} onChange={(e) => setDateMode(e.target.value)} style={inputStyle}>
+                <option value="single">單日快照</option>
+                <option value="range">14天趨勢</option>
+              </select>
+              <input 
+                type="date" 
+                value={selectedDate} 
+                onChange={(e) => setSelectedDate(e.target.value)} 
+                style={inputStyle} 
+              />
+            </>
           )}
-          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
+
           <button 
             onClick={handleSearch} 
             disabled={loading}
@@ -166,6 +184,7 @@ function App() {
           </button>
         </div>
         
+        {/* 市場選擇 Checkbox / Radio */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           {markets.map(m => (
             <label key={m.code} style={{ fontSize: '14px', cursor: 'pointer', padding: '6px 12px', background: selectedMarkets.includes(m.code) ? '#3498db' : '#fff', color: selectedMarkets.includes(m.code) ? 'white' : 'black', borderRadius: '6px', border: '1px solid #3498db' }}>
@@ -181,6 +200,7 @@ function App() {
         </div>
       </div>
 
+      {/* 結果顯示區塊 */}
       <div style={{ minHeight: '400px' }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
@@ -188,51 +208,62 @@ function App() {
           </div>
         )}
 
+        {/* 1. 價格查詢頁籤內容 */}
         {!loading && activeTab === 'query' && queryData && (
           <div>
             {dateMode === 'single' ? (
-              selectedMarkets.length === 1 ? (
-                <div style={cardStyle}>
-                  <h2>{marketMap[queryData[0].MarketCode]} - {queryData[0].TransDate}</h2>
-                  <h1 style={{color: '#27ae60'}}>均價：{queryData[0].Avg_Price} 元/kg</h1>
-                  <h2 style={{color: '#34495e'}}>交易量：{queryData[0].Trans_Quantity?.toLocaleString()} kg</h2>
+              queryData.is_rest_day ? (
+                <div style={{ ...cardStyle, textAlign: 'center', padding: '50px', backgroundColor: '#fff3cd', border: '1px solid #ffeeba' }}>
+                  <h1 style={{ color: '#856404', margin: '0 0 10px 0' }}>🏖️ 提示</h1>
+                  <h2 style={{ color: '#856404' }}>選擇日期為市場休息日</h2>
+                  <p style={{ color: '#856404', fontSize: '14px', marginTop: '10px' }}>當天無批發交易數據</p>
                 </div>
+              ) : selectedMarkets.length === 1 ? (
+                queryData.list.length > 0 ? (
+                  <div style={cardStyle}>
+                    <h2>{marketMap[queryData.list[0].MarketCode]} - {queryData.list[0].TransDate}</h2>
+                    <h1 style={{ color: '#27ae60' }}>均價：{queryData.list[0].Avg_Price} 元/kg</h1>
+                    <h2 style={{ color: '#34495e' }}>交易量：{queryData.list[0].Trans_Quantity?.toLocaleString()} kg</h2>
+                  </div>
+                ) : (
+                  <div style={{ ...cardStyle, textAlign: 'center', color: '#95a5a6' }}>查無當日交易資料</div>
+                )
               ) : (
                 <div style={{ display: 'flex', gap: '20px', height: '350px', flexWrap: 'wrap' }}>
-                  <div style={{...cardStyle, flex: 1, minWidth: '300px'}}>
-                    <h4 style={{textAlign: 'center'}}>各市場價格比較</h4>
+                  <div style={{ ...cardStyle, flex: 1, minWidth: '300px' }}>
+                    <h4 style={{ textAlign: 'center' }}>各市場價格比較</h4>
                     <ResponsiveContainer width="100%" height="85%">
-                      <BarChart data={queryData}>
-                        <XAxis dataKey="MarketCode" tickFormatter={v=>marketMap[v]}/>
-                        <YAxis/>
-                        <Tooltip/>
+                      <BarChart data={queryData.list}>
+                        <XAxis dataKey="MarketCode" tickFormatter={v => marketMap[v]} />
+                        <YAxis />
+                        <Tooltip />
                         <Bar dataKey="Avg_Price" fill="#3498db" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <div style={{...cardStyle, flex: 1, minWidth: '300px'}}>
-                    <h4 style={{textAlign: 'center'}}>交易量佔比</h4>
+                  <div style={{ ...cardStyle, flex: 1, minWidth: '300px' }}>
+                    <h4 style={{ textAlign: 'center' }}>交易量佔比</h4>
                     <ResponsiveContainer width="100%" height="85%">
                       <PieChart>
-                        <Pie data={queryData} dataKey="Trans_Quantity" nameKey="MarketCode" outerRadius={80} label={({payload})=>marketMap[payload.MarketCode]}>
-                          {queryData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                        <Pie data={queryData.list} dataKey="Trans_Quantity" nameKey="MarketCode" outerRadius={80} label={({ payload }) => marketMap[payload.MarketCode]}>
+                          {queryData.list.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
-                        <Tooltip/>
+                        <Tooltip />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               )
             ) : (
-              <div style={{...cardStyle, height: '400px'}}>
-                <h4 style={{textAlign: 'center'}}>14天價格走勢</h4>
+              <div style={{ ...cardStyle, height: '400px' }}>
+                <h4 style={{ textAlign: 'center' }}>14天價格走勢</h4>
                 <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={getTrendData()}>
-                    <CartesianGrid strokeDasharray="3 3"/>
-                    <XAxis dataKey="TransDate"/>
-                    <YAxis domain={['auto', 'auto']}/>
-                    <Tooltip/>
-                    <Legend/>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="TransDate" />
+                    <YAxis domain={['auto', 'auto']} />
+                    <Tooltip />
+                    <Legend />
                     {selectedMarkets.map((m, i) => <Line key={m} type="monotone" dataKey={m} name={marketMap[m] || m} stroke={COLORS[i % COLORS.length]} strokeWidth={3} />)}
                   </LineChart>
                 </ResponsiveContainer>
@@ -241,29 +272,69 @@ function App() {
           </div>
         )}
 
+        {/* 2. AI 預測頁籤內容（含高/低價提醒） */}
         {!loading && activeTab === 'predict' && predictData && (
-          <div style={{...cardStyle, textAlign: 'center', padding: '60px'}}>
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '50px' }}>
             <h2>🔮 AI 預測：{predictData.市場名稱}</h2>
-            <div style={{display: 'flex', justifyContent: 'center', gap: '40px', marginTop: '30px', flexWrap: 'wrap'}}>
-              <div><p>預測明天</p><h1 style={{color: '#e74c3c'}}>{predictData.預測明天價格} 元</h1></div>
-              <div style={{borderLeft: '1px solid #ddd', paddingLeft: '40px'}}><p>預測下週</p><h1 style={{color: '#e67e22'}}>{predictData.預測下週價格} 元</h1></div>
+            <p style={{ color: '#7f8c8d', fontSize: '14px' }}>基於最新交易日特徵（{predictData.特徵資料日期}）</p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '50px', marginTop: '30px', flexWrap: 'wrap' }}>
+              
+              {/* 明日預測區塊 */}
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <p style={{ fontWeight: 'bold', color: '#34495e' }}>預測明天價格</p>
+                <h1 style={{ color: '#e74c3c', fontSize: '36px', margin: '10px 0' }}>
+                  {predictData.預測明天價格} <span style={{ fontSize: '18px' }}>元/kg</span>
+                </h1>
+                {predictData.預測明天提醒 === '週最高價' && (
+                  <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                    🚨 週最高價提醒
+                  </span>
+                )}
+                {predictData.預測明天提醒 === '週最低價' && (
+                  <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                    📉 週最低價 (相對便宜)
+                  </span>
+                )}
+              </div>
+
+              {/* 下週預測區塊 */}
+              <div style={{ flex: 1, minWidth: '200px', borderLeft: '1px solid #eee', paddingLeft: '20px' }}>
+                <p style={{ fontWeight: 'bold', color: '#34495e' }}>預測下週價格</p>
+                <h1 style={{ color: '#e67e22', fontSize: '36px', margin: '10px 0' }}>
+                  {predictData.預測下週價格} <span style={{ fontSize: '18px' }}>元/kg</span>
+                </h1>
+                {predictData.預測下週提醒 === '週最高價' && (
+                  <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                    🚨 週最高價提醒
+                  </span>
+                )}
+                {predictData.預測下週提醒 === '週最低價' && (
+                  <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                    📉 週最低價 (相對便宜)
+                  </span>
+                )}
+              </div>
+
             </div>
           </div>
         )}
 
+        {/* 3. 警示系統頁籤內容 */}
         {!loading && activeTab === 'alert' && queryData && alertInfo && (
-          <div style={{...cardStyle, textAlign: 'center', padding: '60px'}}>
-            <h1 style={{color: alertInfo.isHighest ? '#e74c3c' : '#27ae60'}}>
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '60px' }}>
+            <h1 style={{ color: alertInfo.isHighest ? '#e74c3c' : '#27ae60' }}>
               {alertInfo.isHighest ? '🚨 警報：當前為週最高價！' : '✅ 價格穩定'}
             </h1>
-            <p style={{fontSize: '20px'}}>{marketMap[alertInfo.latest.MarketCode]} 當前價格：{alertInfo.latest.Avg_Price} 元</p>
+            <p style={{ fontSize: '20px' }}>{marketMap[alertInfo.latest.MarketCode]} 當前價格：{alertInfo.latest.Avg_Price} 元</p>
             <p>過去 7 天最高：{alertInfo.maxPast} 元</p>
           </div>
         )}
 
-        {!loading && !queryData && !predictData && activeTab !== 'alert' && (
-          <div style={{...cardStyle, textAlign: 'center', padding: '60px', color: '#95a5a6'}}>
-            <p style={{fontSize: '18px'}}>請選擇市場和日期，然後點擊「開始執行」查詢資料</p>
+        {/* 預設提示畫面 */}
+        {!loading && !queryData && !predictData && (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '60px', color: '#95a5a6' }}>
+            <p style={{ fontSize: '18px' }}>請選擇市場並點擊「開始執行」進行查詢</p>
           </div>
         )}
       </div>

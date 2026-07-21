@@ -111,13 +111,13 @@ def get_trans_data():
 
     return engine
 
-def save_to_db(df, table):
+def save_to_db(df, table, if_exists='replace'):
     try:
         db_engine = get_trans_data()
         df.to_sql(
             name = table,
             con = db_engine,
-            if_exists = 'replace',
+            if_exists = if_exists,
             index = False
         )
         logging.info('寫入成功')

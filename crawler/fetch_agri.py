@@ -134,7 +134,7 @@ if __name__ == '__main__':
     insert_to_veg_db(AD_data, 'la1') # 原始資料
     insert_to_veg_db(AD_data, 'la1_clean') # 準備要資料清洗的資料
     clean_trans_df = clean()
-    save_to_db(clean_trans_df, 'la1_clean')
+    save_to_db(clean_trans_df, 'la1_clean', if_exists='replace')
 
     
 
