@@ -1,10 +1,10 @@
+// src/App.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // 全域常數
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const DAYS_BACK_FOR_ALERT = 14;
-const DAYS_BACK_FOR_TREND = 14;
 const WEEK_HIGH_DAYS = 7;
 const COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
 
@@ -16,7 +16,7 @@ function App() {
   const [selectedMarkets, setSelectedMarkets] = useState(['104']);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
-  const [queryData, setQueryData] = useState(null); // 結構：{ is_rest_day: bool, list: [...] }
+  const [queryData, setQueryData] = useState(null);
   const [predictData, setPredictData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -59,7 +59,6 @@ function App() {
     setError(null);
 
     const mCodes = selectedMarkets.join(',');
-    // 如果在 AI預測 或 警示系統，自動採用今天當作基準日期
     const targetDate = (activeTab === 'predict' || activeTab === 'alert') 
       ? new Date().toISOString().split('T')[0] 
       : selectedDate;
@@ -70,7 +69,7 @@ function App() {
         if (res.ok) {
           setPredictData(await res.json());
         } else {
-          setError('預測失敗，請檢查後端');
+          setError('預測失敗，請檢查後端服務與模型檔案');
         }
       } else {
         const daysBack = (activeTab === 'alert' || dateMode === 'range') ? DAYS_BACK_FOR_ALERT : 0;
@@ -93,7 +92,7 @@ function App() {
         }
       }
     } catch (error) {
-      setError('連線失敗！請確認後端服務是否啟動');
+      setError('連線失敗！請確認後端 API 是否啟動');
     } finally {
       setLoading(false);
     }
@@ -122,21 +121,12 @@ function App() {
     return { isHighest: latest.Avg_Price >= maxPast, latest, maxPast };
   }, [queryData, activeTab]);
 
-  const alertInfo = checkWeeklyHigh;
-
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h1 style={{ textAlign: 'center', color: '#2c3e50' }}>🥦 菜價全方位決策系統</h1>
+    <div style={{ padding: '20px', maxWidth: '1050px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <h1 style={{ textAlign: 'center', color: '#f0f2f4' }}>甘藍菜價全方位決策系統</h1>
 
       {error && (
-        <div style={{ 
-          background: '#e74c3c', 
-          color: 'white', 
-          padding: '12px', 
-          borderRadius: '8px', 
-          marginBottom: '20px',
-          textAlign: 'center'
-        }}>
+        <div style={{ background: '#e74c3c', color: 'white', padding: '12px', borderRadius: '8px', marginBottom: '20px', textAlign: 'center' }}>
           {error}
         </div>
       )}
@@ -152,19 +142,13 @@ function App() {
       <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px' }}>
         <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           
-          {/* 只有在「價格查詢」頁籤才顯示日期相關控制元件 */}
           {activeTab === 'query' && (
             <>
               <select value={dateMode} onChange={(e) => setDateMode(e.target.value)} style={inputStyle}>
                 <option value="single">單日快照</option>
                 <option value="range">14天趨勢</option>
               </select>
-              <input 
-                type="date" 
-                value={selectedDate} 
-                onChange={(e) => setSelectedDate(e.target.value)} 
-                style={inputStyle} 
-              />
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
             </>
           )}
 
@@ -180,11 +164,11 @@ function App() {
               fontWeight: 'bold'
             }}
           >
-            {loading ? '計算中...' : '開始執行'}
+            {loading ? 'AI 推算中...' : '開始執行'}
           </button>
         </div>
         
-        {/* 市場選擇 Checkbox / Radio */}
+        {/* 市場選擇區 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           {markets.map(m => (
             <label key={m.code} style={{ fontSize: '14px', cursor: 'pointer', padding: '6px 12px', background: selectedMarkets.includes(m.code) ? '#3498db' : '#fff', color: selectedMarkets.includes(m.code) ? 'white' : 'black', borderRadius: '6px', border: '1px solid #3498db' }}>
@@ -204,17 +188,16 @@ function App() {
       <div style={{ minHeight: '400px' }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
-            載入中，請稍候...
+            AI 模型推算中，請稍候...
           </div>
         )}
 
-        {/* 1. 價格查詢頁籤內容 */}
+        {/* 1. 價格查詢頁籤 */}
         {!loading && activeTab === 'query' && queryData && (
           <div>
             {dateMode === 'single' ? (
               queryData.is_rest_day ? (
                 <div style={{ ...cardStyle, textAlign: 'center', padding: '50px', backgroundColor: '#fff3cd', border: '1px solid #ffeeba' }}>
-                  <h1 style={{ color: '#856404', margin: '0 0 10px 0' }}>🏖️ 提示</h1>
                   <h2 style={{ color: '#856404' }}>選擇日期為市場休息日</h2>
                   <p style={{ color: '#856404', fontSize: '14px', marginTop: '10px' }}>當天無批發交易數據</p>
                 </div>
@@ -272,66 +255,128 @@ function App() {
           </div>
         )}
 
-        {/* 2. AI 預測頁籤內容（含高/低價提醒） */}
+        {/* 2. AI 預測頁籤內容 (含歷史+未來平滑曲線圖與三階段預測) */}
         {!loading && activeTab === 'predict' && predictData && (
-          <div style={{ ...cardStyle, textAlign: 'center', padding: '50px' }}>
-            <h2>🔮 AI 預測：{predictData.市場名稱}</h2>
-            <p style={{ color: '#7f8c8d', fontSize: '14px' }}>基於最新交易日特徵（{predictData.特徵資料日期}）</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* 頂部三階段預測卡片 */}
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <h2 style={{ color: '#2c3e50', margin: '0 0 5px 0' }}>預測市場：{predictData.市場名稱}</h2>
+              <p style={{ color: '#7f8c8d', fontSize: '13px', margin: 0 }}>特徵基準日：{predictData.特徵資料日期}</p>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '50px', marginTop: '30px', flexWrap: 'wrap' }}>
-              
-              {/* 明日預測區塊 */}
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <p style={{ fontWeight: 'bold', color: '#34495e' }}>預測明天價格</p>
-                <h1 style={{ color: '#e74c3c', fontSize: '36px', margin: '10px 0' }}>
-                  {predictData.預測明天價格} <span style={{ fontSize: '18px' }}>元/kg</span>
-                </h1>
-                {predictData.預測明天提醒 === '週最高價' && (
-                  <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
-                    🚨 週最高價提醒
+              <div style={{ display: 'flex', justifyContent: 'space-around', gap: '20px', marginTop: '25px', flexWrap: 'wrap' }}>
+                
+                {/* 1. 明日預測 */}
+                <div style={{ flex: 1, minWidth: '180px', padding: '15px', background: '#f8f9fa', borderRadius: '10px' }}>
+                  <p style={{ fontWeight: 'bold', color: '#34495e', margin: '0 0 10px 0' }}>預測明天價格 (t+1)</p>
+                  <h1 style={{ color: '#e74c3c', fontSize: '32px', margin: '5px 0' }}>
+                    {predictData.預測明天價格} <span style={{ fontSize: '16px' }}>元/kg</span>
+                  </h1>
+                  {predictData.預測明天提醒 === '週最高價' && (
+                    <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                      🚨 週最高價提醒
+                    </span>
+                  )}
+                  {predictData.預測明天提醒 === '週最低價' && (
+                    <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                      📉 週最低價 (相對便宜)
+                    </span>
+                  )}
+                </div>
+
+                {/* 2. 三天後預測 (黃金採購點) */}
+                <div style={{ flex: 1, minWidth: '180px', padding: '15px', background: '#eaf2f8', borderRadius: '10px', border: '1px solid #aed6f1' }}>
+                  <p style={{ fontWeight: 'bold', color: '#1b4f72', margin: '0 0 10px 0' }}>🎯 三天後價格 (t+3)</p>
+                  <h1 style={{ color: '#2980b9', fontSize: '32px', margin: '5px 0' }}>
+                    {predictData.預測三天後價格} <span style={{ fontSize: '16px' }}>元/kg</span>
+                  </h1>
+                  <span style={{ background: '#d4efdf', color: '#196f3d', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                    最佳採購決策點
                   </span>
-                )}
-                {predictData.預測明天提醒 === '週最低價' && (
-                  <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
-                    📉 週最低價 (相對便宜)
-                  </span>
-                )}
+                </div>
+
+                {/* 3. 下週預測 */}
+                <div style={{ flex: 1, minWidth: '180px', padding: '15px', background: '#f8f9fa', borderRadius: '10px' }}>
+                  <p style={{ fontWeight: 'bold', color: '#34495e', margin: '0 0 10px 0' }}>預測下週價格 (t+7)</p>
+                  <h1 style={{ color: '#e67e22', fontSize: '32px', margin: '5px 0' }}>
+                    {predictData.預測下週價格} <span style={{ fontSize: '16px' }}>元/kg</span>
+                  </h1>
+                  {predictData.預測下週提醒 === '週最高價' && (
+                    <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                      🚨 週最高價提醒
+                    </span>
+                  )}
+                  {predictData.預測下週提醒 === '週最低價' && (
+                    <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                      📉 週最低價 (相對便宜)
+                    </span>
+                  )}
+                </div>
+
               </div>
-
-              {/* 下週預測區塊 */}
-              <div style={{ flex: 1, minWidth: '200px', borderLeft: '1px solid #eee', paddingLeft: '20px' }}>
-                <p style={{ fontWeight: 'bold', color: '#34495e' }}>預測下週價格</p>
-                <h1 style={{ color: '#e67e22', fontSize: '36px', margin: '10px 0' }}>
-                  {predictData.預測下週價格} <span style={{ fontSize: '18px' }}>元/kg</span>
-                </h1>
-                {predictData.預測下週提醒 === '週最高價' && (
-                  <span style={{ background: '#fce4e4', color: '#e74c3c', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
-                    🚨 週最高價提醒
-                  </span>
-                )}
-                {predictData.預測下週提醒 === '週最低價' && (
-                  <span style={{ background: '#e8f8f5', color: '#27ae60', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
-                    📉 週最低價 (相對便宜)
-                  </span>
-                )}
-              </div>
-
             </div>
+
+            {/* 底部：歷史真實價 + 未來預測平滑曲線圖 */}
+            <div style={{ ...cardStyle, height: '420px' }}>
+              <h3 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '15px' }}>
+                📈 {predictData.市場名稱} - 歷史真實均價與 AI 預測趨勢曲線
+              </h3>
+              <ResponsiveContainer width="100%" height="85%">
+                <LineChart data={predictData.趨勢圖資料} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis domain={['auto', 'auto']} unit="元" />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      `${value} 元/kg`, 
+                      name === 'actual_price' ? '歷史真實均價' : 'AI 預測價格'
+                    ]}
+                  />
+                  <Legend />
+                  
+                  {/* 1. 過去 5 天真實歷史價格 (藍色實線) */}
+                  <Line 
+                    type="monotone" 
+                    dataKey="actual_price" 
+                    name="歷史真實均價" 
+                    stroke="#3498db" 
+                    strokeWidth={3} 
+                    dot={{ r: 5, fill: '#3498db' }}
+                    activeDot={{ r: 8 }}
+                    connectNulls
+                  />
+
+                  {/* 2. 未來 3 階段 AI 預測價格 (橘紅色虛線) */}
+                  <Line 
+                    type="monotone" 
+                    dataKey="predict_price" 
+                    name="AI 預測價格" 
+                    stroke="#e67e22" 
+                    strokeWidth={3} 
+                    strokeDasharray="5 5" 
+                    dot={{ r: 6, fill: '#e67e22' }}
+                    activeDot={{ r: 8 }}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
           </div>
         )}
 
-        {/* 3. 警示系統頁籤內容 */}
-        {!loading && activeTab === 'alert' && queryData && alertInfo && (
+        {/* 3. 警示系統頁籤 */}
+        {!loading && activeTab === 'alert' && queryData && checkWeeklyHigh && (
           <div style={{ ...cardStyle, textAlign: 'center', padding: '60px' }}>
-            <h1 style={{ color: alertInfo.isHighest ? '#e74c3c' : '#27ae60' }}>
-              {alertInfo.isHighest ? '🚨 警報：當前為週最高價！' : '✅ 價格穩定'}
+            <h1 style={{ color: checkWeeklyHigh.isHighest ? '#e74c3c' : '#27ae60' }}>
+              {checkWeeklyHigh.isHighest ? '🚨 警報：當前為週最高價！' : '✅ 價格穩定'}
             </h1>
-            <p style={{ fontSize: '20px' }}>{marketMap[alertInfo.latest.MarketCode]} 當前價格：{alertInfo.latest.Avg_Price} 元</p>
-            <p>過去 7 天最高：{alertInfo.maxPast} 元</p>
+            <p style={{ fontSize: '20px' }}>{marketMap[checkWeeklyHigh.latest.MarketCode]} 當前價格：{checkWeeklyHigh.latest.Avg_Price} 元</p>
+            <p>過去 7 天最高：{checkWeeklyHigh.maxPast} 元</p>
           </div>
         )}
 
-        {/* 預設提示畫面 */}
+        {/* 預設提示 */}
         {!loading && !queryData && !predictData && (
           <div style={{ ...cardStyle, textAlign: 'center', padding: '60px', color: '#95a5a6' }}>
             <p style={{ fontSize: '18px' }}>請選擇市場並點擊「開始執行」進行查詢</p>
@@ -365,7 +410,6 @@ const cardStyle = {
   padding: '25px', 
   borderRadius: '12px', 
   boxShadow: '0 4px 12px rgba(0,0,0,0.08)', 
-  flex: 1, 
   boxSizing: 'border-box' 
 };
 

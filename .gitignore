@@ -25,8 +25,12 @@ venv/
 # --- 忽略.xls ---
 *.xls
 
+# --- 忽略.png ---
+*.png
+
 node_modules/
 package-lock.json
 # 如果 predict 下的這些 json 是動態產生的產物，也建議排除
 predict/*_tomorrow.json
+predict/*_three_days.json
 predict/*_next_week.json

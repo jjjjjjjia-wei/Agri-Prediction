@@ -10,7 +10,7 @@ def transform_obstime():
     # 先把天氣資料按照"一天多個測站"分類
     # 從資料庫提取天氣資料
     db_engine = get_weather_data()
-    sql = 'SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 150 DAY'
+    sql = 'SELECT * FROM `clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 150 DAY'
     df = pd.read_sql(sql, db_engine)
     df_len = len(df)
     print(f"天氣資料表的資料長度:{df_len}")
@@ -19,16 +19,14 @@ def transform_obstime():
         return 
 
     # 轉換表格
-    clean_column = ['StnPres', 'StnPresMax', 'StnPresMin','Temperature', 'T Max', 'T Min', 
-                        'RH', 'RHMin', 'WS', 'WD', 'WSGust', 'WDGust', 'Precp']
+    clean_column = ['Temperature', 'RH', 'Precp']
     df_wide = df.pivot_table(index='ObsTime', columns='Station_Code', values=clean_column)
     df_wide.columns = [f"{col[1]}_{col[0]}" for col in df_wide.columns]
     df_wide = df_wide.reset_index()
     df_wide_newest = df_wide.tail(1)
 
     # 存回資料庫
-    save_to_weather_db(df_wide_newest, "2020-2025_all_stations_daily", 'append')
-    
+    save_to_weather_db(df_wide_newest, "all_stations_daily", 'append')
     return df_wide
 
 def trans_data():
@@ -51,33 +49,27 @@ def weather_FE():
     
     # 測站代號
     all_station_code = ['C2F860', 'C2G870', 'C0G730', 'C0G940', 'C2K280', 'C0K390', 'C0K500', 
-                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480']
+                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480','C0M820', 
+                    '72M700', 'C0I390', '42HA10', 'C0U720']
     
     # --- 1. 滾動平均 ---
     for station in all_station_code:
-        # 7 天、14天的 累積降雨量 and 平均降雨量
+        # 7 天的 累積降雨量
         new_features[f'{station}_7days_sum_Precp'] = weather_df[f'{station}_Precp'].rolling(window=7).sum()
-        new_features[f'{station}_14days_sum_Precp'] = weather_df[f'{station}_Precp'].rolling(window=14).sum()
-        new_features[f'{station}_7days_means_Precp'] = weather_df[f'{station}_Precp'].rolling(window=7).mean()
-        new_features[f'{station}_14days_means_Precp'] = weather_df[f'{station}_Precp'].rolling(window=14).mean()
-        # 7 天、14天、21天、30天、45天、60天、75天、90天的氣溫平均
+        
+        # 7 天、14天的氣溫平均
         new_features[f'{station}_7days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=7).mean()
         new_features[f'{station}_14days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=14).mean()
-        new_features[f'{station}_21days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=21).mean()
-        new_features[f'{station}_30days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=30).mean()
-        new_features[f'{station}_45days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=45).mean()
-        new_features[f'{station}_60days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=60).mean()
-        new_features[f'{station}_75days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=75).mean()
-        new_features[f'{station}_90days_mean_tem'] = weather_df[f'{station}_Temperature'].rolling(window=90).mean()
-        # 7 天、14天、21天、30天的相對溼度平均
-        new_features[f'{station}_7days_mean_RH'] = weather_df[f"{station}_RH"].rolling(window=7).mean()
-        new_features[f'{station}_14days_mean_RH'] = weather_df[f"{station}_RH"].rolling(window=14).mean()
-        new_features[f'{station}_21days_mean_RH'] = weather_df[f"{station}_RH"].rolling(window=21).mean()
-        new_features[f'{station}_30days_mean_RH'] = weather_df[f"{station}_RH"].rolling(window=30).mean()
+        
+        # 抓高溫高濕的病害高風險天數 (Temp > 25 且 RH > 80)
+        is_rot_risk = ((weather_df[f'{station}_Temperature'] > 25) & (weather_df[f'{station}_RH'] > 80)).astype(int)
+        new_features[f'{station}_rot_risk_7d'] = is_rot_risk.rolling(window=7, min_periods=1).sum()
 
-        # 過去 14 天內，累積降雨量超過 50mm 的天數
-        is_heavy_rain = (weather_df[f'{station}_Precp'] >= 50).astype(int)
+        # 過去 14 天內，累積降雨量超過 30mm 的天數
+        is_heavy_rain = (weather_df[f'{station}_Precp'] >= 30).astype(int)
         new_features[f'{station}_heavy_rain_in_7days'] = is_heavy_rain.rolling(window=7).sum()
+        # 生長期幼苗災害特徵 (抓 60 天前育苗期是否遭遇暴雨摧毀，保留 75~90 天生長週期邏輯)
+        new_features[f'{station}_heavy_rain_lag60'] = is_heavy_rain.shift(60).fillna(0)
 
         # 過去 7 天內，氣溫超過 30 度的日子有幾天
         is_over_30deg = (weather_df[f'{station}_Temperature'] > 30).astype(int)
@@ -152,7 +144,7 @@ def merge_weather_trans(trans_df, weather_df):
     
     return merged_df
 
-def save_to_merge_db(merged_df, table):
+def save_to_merge_db(merged_df, table, if_exist):
     
     DB_CONFIG = {
     "host": "127.0.0.1",
@@ -168,7 +160,7 @@ def save_to_merge_db(merged_df, table):
         merged_df.to_sql(
             name = table,
             con = db_engine,
-            if_exists = 'append',
+            if_exists = if_exist, 
             index = False
         )
         logging.info('特徵工程資料寫入成功')
@@ -186,4 +178,6 @@ if __name__ == "__main__":
     latest_date = merge_df['TransDate'].max()
     print(f"最新日期為: {latest_date}")
     newest_data = merge_df[merge_df['TransDate']==latest_date]
-    save_to_merge_db(newest_data, table='merged_fe')
+    save_to_merge_db(newest_data, table='merged_fe', if_exist='append')
+
+    

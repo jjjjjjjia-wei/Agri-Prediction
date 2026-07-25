@@ -5,8 +5,9 @@ import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-all_station_code = ['C2F860','C2G870', 'C0G730', 'C0G940', 'C2K280', 'C0K390', 'C0K500', 
-                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480']
+all_station_code = ['C2F860', 'C2G870', 'C0G730', 'C0G940', 'C2K280', 'C0K390', 'C0K500', 
+                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480','C0M820', 
+                    '72M700', 'C0I390', '42HA10', 'C0U720']
 station_str = ','.join(all_station_code)
 
 def get_data_per_hour():

@@ -14,7 +14,8 @@ WEA_DB_CONFIG = {
 }
 
 all_station_code = ['C2F860', 'C2G870', 'C0G730', 'C0G940', 'C2K280', 'C0K390', 'C0K500', 
-                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480']
+                    'V2K620', 'C0K590', 'C0K440', 'C0K550', 'A2K360', 'C0K480','C0M820', 
+                    '72M700', 'C0I390', '42HA10', 'C0U720']
 
 def clean():
     db_url = f"mysql+pymysql://{WEA_DB_CONFIG['user']}:{WEA_DB_CONFIG['password']}@{WEA_DB_CONFIG['host']}:{WEA_DB_CONFIG['port']}/{WEA_DB_CONFIG['database']}"
@@ -23,7 +24,8 @@ def clean():
     clean_column = ['StnPres', 'StnPresMax', 'StnPresMin','Temperature', 'T Max', 'T Min', 
                     'RH', 'RHMin', 'WS', 'WD', 'WSGust', 'WDGust', 'Precp']
 
-    sql = f'''SELECT * FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 3 DAY'''
+
+    sql = f'''SELECT * FROM `clean_weather` WHERE DATE(ObsTime) >= CURDATE() - INTERVAL 3 DAY'''
     df = pd.read_sql(sql, engine)
     if df.empty:
         return df
@@ -68,12 +70,12 @@ if __name__ == '__main__':
     df = df[df['ObsTime'] == datetime.date.today() - datetime.timedelta(days=1)]
     if not df.empty:
         engine = get_weather_data()
-        del_yesterday_sql = 'DELETE FROM `2020-2025_clean_weather` WHERE DATE(ObsTime) = CURDATE() - INTERVAL 1 DAY'
+        del_yesterday_sql = 'DELETE FROM `clean_weather` WHERE DATE(ObsTime) = CURDATE() - INTERVAL 1 DAY'
         with engine.connect() as conn:
             conn.execute(text(del_yesterday_sql))
             conn.commit()
 
-        save_to_weather_db(df, '2020-2025_clean_weather', 'append')
+        save_to_weather_db(df, 'clean_weather', 'append')
     
     
     

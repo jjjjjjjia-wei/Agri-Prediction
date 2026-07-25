@@ -51,5 +51,5 @@ def get_max_gust_dir(group):
 if __name__ == "__main__":
     df = get_day_data()
     if df is not None:
-        weather_database.save_to_weather_db(df, '2020-2025_original_weather', 'append') 
-        weather_database.save_to_weather_db(df, '2020-2025_clean_weather', 'append')
+        weather_database.save_to_weather_db(df, 'original_weather', 'append') 
+        weather_database.save_to_weather_db(df, 'clean_weather', 'append')

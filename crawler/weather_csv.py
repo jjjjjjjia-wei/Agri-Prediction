@@ -70,6 +70,6 @@ if __name__ == "__main__":
     from weather_database import save_to_weather_db
     df = merge()
     initial_clean_df = data_clean(df)
-    save_to_weather_db(initial_clean_df, '2020-2025_original_weather', 'replace')
+    save_to_weather_db(initial_clean_df, 'original_weather', 'replace')
     
     

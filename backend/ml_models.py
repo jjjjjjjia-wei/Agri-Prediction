@@ -10,6 +10,7 @@ loaded_models = {}
 
 def get_market_model(market_code: str):
     t_model_key = f"{market_code}_tomorrow"
+    three_day_model_key = f"{market_code}_three_days"
     w_model_key = f"{market_code}_next_week"
 
     # 如果還沒有載入過明日預測模型，就先載入
@@ -21,6 +22,14 @@ def get_market_model(market_code: str):
         t_model.load_model(t_path)
         loaded_models[t_model_key] = t_model
 
+    if three_day_model_key not in loaded_models:
+            three_day_path = os.path.join(MODEL_DIR, f'{three_day_model_key}.json')
+            if not os.path.exists(three_day_path):
+                raise FileNotFoundError(f"找不到市場 {market_code} 的三日後預測模型：{three_day_path}")
+            three_day_model = XGBRegressor()
+            three_day_model.load_model(three_day_path)
+            loaded_models[three_day_model_key] = three_day_model
+
     if w_model_key not in loaded_models:
         w_path = os.path.join(MODEL_DIR, f"{w_model_key}.json")
         if not os.path.exists(w_path):
@@ -29,4 +38,4 @@ def get_market_model(market_code: str):
         w_model.load_model(w_path)
         loaded_models[w_model_key] = w_model
 
-    return loaded_models[t_model_key], loaded_models[w_model_key]
+    return loaded_models[t_model_key], loaded_models[three_day_model_key], loaded_models[w_model_key]
