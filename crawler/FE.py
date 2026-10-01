@@ -65,7 +65,7 @@ def weather_FE():
         is_rot_risk = ((weather_df[f'{station}_Temperature'] > 25) & (weather_df[f'{station}_RH'] > 80)).astype(int)
         new_features[f'{station}_rot_risk_7d'] = is_rot_risk.rolling(window=7, min_periods=1).sum()
 
-        # 過去 14 天內，累積降雨量超過 30mm 的天數
+        # 過去 7 天內，累積降雨量超過 30mm 的天數
         is_heavy_rain = (weather_df[f'{station}_Precp'] >= 30).astype(int)
         new_features[f'{station}_heavy_rain_in_7days'] = is_heavy_rain.rolling(window=7).sum()
         # 生長期幼苗災害特徵 (抓 60 天前育苗期是否遭遇暴雨摧毀，保留 75~90 天生長週期邏輯)
@@ -102,32 +102,33 @@ def weather_FE():
 def trans_FE():
     trans_df = trans_data()
     trans_df['TransDate'] = pd.to_datetime(trans_df['TransDate'])
-    trans_df = trans_df.sort_values('TransDate')
+    trans_df = trans_df.sort_values(['MarketCode', 'TransDate']).reset_index(drop=True)
+    new_features = {}
 
     # 昨天以及前天的平均價
-    trans_df['yesterday_avgP'] = trans_df.groupby("MarketCode")['Avg_Price'].shift(1)
-    trans_df['two_day_ago_avgP'] = trans_df.groupby("MarketCode")['Avg_Price'].shift(2)
+    new_features['yesterday_avgP'] = trans_df.groupby("MarketCode")['Avg_Price'].shift(1)
+    new_features['two_day_ago_avgP'] = trans_df.groupby("MarketCode")['Avg_Price'].shift(2)
     # 平均價趨勢
-    trans_df['yesterday_fluctuation'] = trans_df['yesterday_avgP'] - trans_df['two_day_ago_avgP']
+    new_features['yesterday_fluctuation'] = new_features['yesterday_avgP'] - new_features['two_day_ago_avgP']
 
     # 昨天同一個市場的交易量
-    trans_df['yesterday_transQ'] = trans_df.groupby('MarketCode')['Trans_Quantity'].shift(1)
+    new_features['yesterday_transQ'] = trans_df.groupby('MarketCode')['Trans_Quantity'].shift(1)
 
-    # 從昨天開始往前推 7 天的平均交易量
-    trans_df['transQ_avg_7day'] = trans_df.groupby('MarketCode')['Trans_Quantity'].transform(lambda x: x.shift(1).rolling(window=7).mean())
+    # # 過去 7 天滾動平均交易量與價格
+    new_features['transQ_avg_7day'] = trans_df.groupby('MarketCode')['Trans_Quantity'].transform(lambda x: x.rolling(window=7).mean())
+    new_features['avgP_rolling_7day'] = trans_df.groupby('MarketCode')['Avg_Price'].transform(lambda x: x.rolling(7).mean())
 
     # 昨天的最高價
-    trans_df['yesterday_upperP'] = trans_df.groupby('MarketCode')['Upper_Price'].shift(1)
+    new_features['yesterday_upperP'] = trans_df.groupby('MarketCode')['Upper_Price'].shift(1)
 
     # 昨天的中價
-    trans_df['yesterday_middleP'] = trans_df.groupby('MarketCode')['Middle_Price'].shift(1)
+    new_features['yesterday_middleP'] = trans_df.groupby('MarketCode')['Middle_Price'].shift(1)
     
     # 昨天的最低價
-    trans_df['yesterday_lowerP'] = trans_df.groupby('MarketCode')['Lower_Price'].shift(1)
+    new_features['yesterday_lowerP'] = trans_df.groupby('MarketCode')['Lower_Price'].shift(1)
 
-    # 刪除 '當日'最高價、中價、最低價、交易量，以防止當日洩漏
-    trans_df = trans_df.drop(columns=['Upper_Price', 'Middle_Price', 'Lower_Price', 'Trans_Quantity'])
-
+    new_features_df = pd.DataFrame(new_features)
+    trans_df = pd.concat([trans_df, new_features_df], axis=1) # 橫向合併
     return trans_df
 
 def merge_weather_trans(trans_df, weather_df):

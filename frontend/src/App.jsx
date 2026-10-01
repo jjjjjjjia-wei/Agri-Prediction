@@ -285,14 +285,11 @@ function App() {
                 </div>
 
                 {/* 2. 三天後預測 (黃金採購點) */}
-                <div style={{ flex: 1, minWidth: '180px', padding: '15px', background: '#eaf2f8', borderRadius: '10px', border: '1px solid #aed6f1' }}>
-                  <p style={{ fontWeight: 'bold', color: '#1b4f72', margin: '0 0 10px 0' }}>🎯 三天後價格 (t+3)</p>
+                <div style={{ flex: 1, minWidth: '180px', padding: '15px', borderRadius: '10px' }}>
+                  <p style={{ fontWeight: 'bold', color: '#1b4f72', margin: '0 0 10px 0' }}>預測三天後價格 (t+3)</p>
                   <h1 style={{ color: '#2980b9', fontSize: '32px', margin: '5px 0' }}>
                     {predictData.預測三天後價格} <span style={{ fontSize: '16px' }}>元/kg</span>
                   </h1>
-                  <span style={{ background: '#d4efdf', color: '#196f3d', padding: '3px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
-                    最佳採購決策點
-                  </span>
                 </div>
 
                 {/* 3. 下週預測 */}
